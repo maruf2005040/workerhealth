@@ -1,0 +1,42 @@
+# Cloudflare Pages Configuration
+# Construction Manager - Turso Cloud Storage + Mistral AI
+
+name = "construction-manager"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Pages project settings
+pages_build_output_dir = "./public"
+
+# ========================================
+# Environment Variables (non-secret)
+# ========================================
+# Set secrets via Cloudflare Dashboard or wrangler pages secret put
+
+[vars]
+TURSO_URL = "libsql://your-database-name-your-org.turso.so"
+MISTRAL_MODEL_ID = "mistral-large-latest"
+
+# ========================================
+# Secret Variables (NEVER put values here)
+# ========================================
+# Set these via:
+#   Cloudflare Dashboard > Workers & Pages > Your Project > Settings > Environment variables
+#   OR: npx wrangler pages secret put TURSO_AUTH_TOKEN
+#   OR: npx wrangler pages secret put MISTRAL_API_KEY
+#
+# Required secrets:
+#   TURSO_AUTH_TOKEN  - Your Turso database auth token
+#   MISTRAL_API_KEY   - Your Mistral AI API key
+# ========================================
+
+# ========================================
+# Local Development
+# ========================================
+# 1. Install dependencies: npm install
+# 2. Create .dev.vars file with your credentials:
+#    TURSO_URL=libsql://your-database-name-your-org.turso.so
+#    TURSO_AUTH_TOKEN=your-turso-auth-token
+#    MISTRAL_API_KEY=your-mistral-api-key
+#    MISTRAL_MODEL_ID=mistral-large-latest
+# 3. Run: npx wrangler pages dev ./public

@@ -1,0 +1,18 @@
+# Local Development Environment Variables
+# Copy this file to .dev.vars and fill in your actual values
+# NEVER commit .dev.vars to version control
+
+# ========================================
+# Turso Database Configuration
+# ========================================
+# Get these from: turso db show construction-manager --url
+# and: turso db tokens create construction-manager
+TURSO_URL=libsql://construction-manager-your-org.turso.so
+TURSO_AUTH_TOKEN=your-actual-turso-auth-token-here
+
+# ========================================
+# Mistral AI Configuration
+# ========================================
+# Get this from: https://console.mistral.ai/api-keys
+MISTRAL_API_KEY=your-actual-mistral-api-key-here
+MISTRAL_MODEL_ID=mistral-large-latest
