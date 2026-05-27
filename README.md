@@ -10,7 +10,7 @@ turso db show construction-manager --url
 turso db tokens create construction-manager
 ```
 
-### 2. Initialize Database
+### 2. Initialize Database Correctly
 ```bash
 turso db shell construction-manager
 ```
