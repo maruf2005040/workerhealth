@@ -1,9 +1,5 @@
 # Construction Manager - Ready for Cloudflare Pages
 
-## ⚡ No wrangler.toml needed!
-
-Environment variables are read directly from Cloudflare dashboard.
-
 ## 🚀 Deployment Steps
 
 ### 1. Create Turso Database
