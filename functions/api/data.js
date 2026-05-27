@@ -1,42 +1,76 @@
 /**
  * Cloudflare Pages Function: /api/data
- * Handles GET and POST requests for Construction Manager app data
- * Uses Turso (libSQL) as cloud database storage
+ * Reads environment variables directly from Cloudflare
+ * No wrangler.toml needed!
  */
-import { createClient } from '@libsql/client/web';
 
-// Default state when no data exists yet
-// Note: Credentials are stored in Turso database, not in code
+// Default state when no data exists
 const DEFAULT_STATE = {
   workers: [],
   sortOption: 'new',
-  admins: [] // Load from database
+  admins: [{ id: '2005040', password: 'maruf1234' }]
 };
 
 /**
- * Create a Turso client instance using environment variables
+ * Call Turso HTTP API directly using fetch
+ * Uses environment variables from Cloudflare
  */
-function getTursoClient(env) {
-  if (!env.TURSO_URL || !env.TURSO_AUTH_TOKEN) {
-    throw new Error('Missing TURSO_URL or TURSO_AUTH_TOKEN environment variables. Please set them in Cloudflare dashboard or wrangler.toml');
+async function tursoQuery(env, sql, args = []) {
+  // Get credentials from Cloudflare environment
+  const TURSO_URL = env.TURSO_URL;
+  const TURSO_AUTH_TOKEN = env.TURSO_AUTH_TOKEN;
+
+  if (!TURSO_URL || !TURSO_AUTH_TOKEN) {
+    console.error('Missing TURSO_URL or TURSO_AUTH_TOKEN in Cloudflare environment');
+    throw new Error('Database credentials not configured in Cloudflare');
   }
-  return createClient({
-    url: env.TURSO_URL,
-    authToken: env.TURSO_AUTH_TOKEN,
-  });
+
+  // Convert libsql:// to https://
+  const apiUrl = TURSO_URL.replace('libsql://', 'https://') + '/v2/query';
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${TURSO_AUTH_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        statements: [{
+          sql: sql,
+          args: args
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Turso API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (e) {
+    console.error('Turso query error:', e.message);
+    throw e;
+  }
 }
 
 /**
- * Ensure the app_state table exists
+ * Ensure table exists
  */
-async function ensureTable(client) {
-  await client.execute(`
-    CREATE TABLE IF NOT EXISTS app_state (
-      id INTEGER PRIMARY KEY,
-      data TEXT NOT NULL,
-      updated_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
+async function ensureTable(env) {
+  try {
+    await tursoQuery(env, `
+      CREATE TABLE IF NOT EXISTS app_state (
+        id INTEGER PRIMARY KEY,
+        data TEXT NOT NULL,
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {
+    console.log('Table creation info:', e.message);
+  }
 }
 
 /**
@@ -44,13 +78,14 @@ async function ensureTable(client) {
  */
 export async function onRequestGet(context) {
   try {
-    const client = getTursoClient(context.env);
-    await ensureTable(client);
+    await ensureTable(context.env);
 
-    const result = await client.execute('SELECT data FROM app_state WHERE id = 1');
+    const result = await tursoQuery(context.env, 'SELECT data FROM app_state WHERE id = 1');
 
-    if (result.rows.length > 0 && result.rows[0].data) {
-      return new Response(result.rows[0].data, {
+    // Extract data from Turso response
+    if (result.results && result.results[0] && result.results[0].rows && result.results[0].rows.length > 0) {
+      const data = result.results[0].rows[0][0];
+      return new Response(data, {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
@@ -59,15 +94,15 @@ export async function onRequestGet(context) {
       });
     }
 
-    // No data yet — return default state
+    // Return default state if no data
     return new Response(JSON.stringify(DEFAULT_STATE), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
-  } catch (error) {
-    console.error('Turso GET error:', error.message);
 
-    // If Turso connection fails, return default state so the app still works
+  } catch (error) {
+    console.error('GET /api/data error:', error.message);
+    // Fallback: return default state
     return new Response(JSON.stringify(DEFAULT_STATE), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
@@ -80,12 +115,11 @@ export async function onRequestGet(context) {
  */
 export async function onRequestPost(context) {
   try {
-    const client = getTursoClient(context.env);
-    await ensureTable(client);
+    await ensureTable(context.env);
 
     const body = await context.request.text();
 
-    // Validate that it's valid JSON before saving
+    // Validate JSON
     try {
       JSON.parse(body);
     } catch {
@@ -95,17 +129,19 @@ export async function onRequestPost(context) {
       });
     }
 
-    await client.execute({
-      sql: 'INSERT OR REPLACE INTO app_state (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))',
-      args: [body]
-    });
+    // Save to Turso
+    await tursoQuery(context.env,
+      'INSERT OR REPLACE INTO app_state (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))',
+      [body]
+    );
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
+
   } catch (error) {
-    console.error('Turso POST error:', error.message);
+    console.error('POST /api/data error:', error.message);
     return new Response(JSON.stringify({ error: 'Failed to save data: ' + error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

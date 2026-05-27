@@ -1,14 +1,16 @@
 /**
  * Cloudflare Pages Function: /api/ai
  * Proxies chat requests to Mistral AI API
- * API key and model ID are read from environment variables
+ * Uses environment variables from Cloudflare directly
  */
+
 export async function onRequestPost(context) {
+  // Get API key from Cloudflare environment
   const MISTRAL_API_KEY = context.env.MISTRAL_API_KEY;
   const MISTRAL_MODEL_ID = context.env.MISTRAL_MODEL_ID || 'mistral-large-latest';
 
   if (!MISTRAL_API_KEY) {
-    return new Response(JSON.stringify({ error: 'MISTRAL_API_KEY environment variable is not set. Please configure it in Cloudflare Dashboard.' }), {
+    return new Response(JSON.stringify({ error: 'MISTRAL_API_KEY not configured in Cloudflare environment' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
@@ -127,7 +129,7 @@ ETHICAL AND PROFESSIONAL DISCIPLINE:
 MISSION STATEMENT:
 Your mission is to operate as a Construction Knowledge Authority that delivers PhD-level insight, technical clarity, and industry-relevant intelligence for construction professionals, students, researchers, and decision-makers-fully reflecting the vision, authorship, and intellectual ownership of Md Maruf Hasan.`;
 
-    // Call Mistral AI Chat API
+    // Call Mistral AI API
     const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
       headers: {

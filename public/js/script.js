@@ -288,7 +288,7 @@
         state: {
             workers: [],
             sortOption: 'new',
-            admins: [{ id: '2005040', password: 'maruf1234' }] // Default admin - change password after first login!
+            admins: [{ id: '2005040', password: 'maruf1234' }]
         },
         currentUser: null,
 
