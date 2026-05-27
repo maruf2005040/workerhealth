@@ -1,7 +1,7 @@
 {
   "name": "construction-manager",
-  "version": "2.0.0",
-  "description": "Construction Manager with Turso Cloud Storage - Deployable on Cloudflare Pages",
+  "version": "3.0.0",
+  "description": "Construction Manager with Turso Cloud Storage - Admin auth via server-side validation",
   "private": true,
   "scripts": {
     "dev": "wrangler pages dev ./public",

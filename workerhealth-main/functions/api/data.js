@@ -2,13 +2,15 @@
  * Cloudflare Pages Function: /api/data
  * Reads environment variables directly from Cloudflare
  * No wrangler.toml needed!
+ *
+ * IMPORTANT: Admin credentials are NO LONGER stored in app_state JSON.
+ * They are stored in the separate `admins` table and validated via /api/auth.
  */
 
-// Default state when no data exists
+// Default state when no data exists (NO admins array here!)
 const DEFAULT_STATE = {
   workers: [],
-  sortOption: 'new',
-  admins: [{ id: '2005040', password: 'maruf1234' }]
+  sortOption: 'new'
 };
 
 /**
@@ -57,7 +59,7 @@ async function tursoQuery(env, sql, args = []) {
 }
 
 /**
- * Ensure table exists
+ * Ensure app_state table exists
  */
 async function ensureTable(env) {
   try {
@@ -85,13 +87,30 @@ export async function onRequestGet(context) {
     // Extract data from Turso response
     if (result.results && result.results[0] && result.results[0].rows && result.results[0].rows.length > 0) {
       const data = result.results[0].rows[0][0];
-      return new Response(data, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
+
+      // Parse and sanitize: remove admins array if it somehow exists in old data
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed.admins) {
+          delete parsed.admins;
         }
-      });
+        return new Response(JSON.stringify(parsed), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          }
+        });
+      } catch {
+        // If parsing fails, return as-is
+        return new Response(data, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          }
+        });
+      }
     }
 
     // Return default state if no data
@@ -120,8 +139,9 @@ export async function onRequestPost(context) {
     const body = await context.request.text();
 
     // Validate JSON
+    let parsed;
     try {
-      JSON.parse(body);
+      parsed = JSON.parse(body);
     } catch {
       return new Response(JSON.stringify({ error: 'Invalid JSON data' }), {
         status: 400,
@@ -129,10 +149,17 @@ export async function onRequestPost(context) {
       });
     }
 
+    // Strip admins array if present (admins are stored in the admins table, not here)
+    if (parsed.admins) {
+      delete parsed.admins;
+    }
+
+    const cleanBody = JSON.stringify(parsed);
+
     // Save to Turso
     await tursoQuery(context.env,
       'INSERT OR REPLACE INTO app_state (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))',
-      [body]
+      [cleanBody]
     );
 
     return new Response(JSON.stringify({ success: true }), {
