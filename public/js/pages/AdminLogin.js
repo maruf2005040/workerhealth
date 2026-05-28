@@ -24,11 +24,13 @@ export const AdminLogin = {
                 placeholder: 'Enter Password',
                 required: true
             })}
+                                <div id="login-error" style="display: none; color: #ef4444; background: #fee2e2; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem; font-size: 0.875rem;"></div>
                                 ${Button({
                 text: 'Login',
                 type: 'submit',
                 variant: 'primary',
-                className: 'btn-block'
+                className: 'btn-block',
+                id: 'login-btn'
             })}
                             </form>
                             <div style="margin-top: 1rem; text-align: center;">
@@ -47,27 +49,42 @@ export const AdminLogin = {
     },
 
     afterRender() {
-        // Handle Login - validates server-side via /api/auth
+        const loginBtn = document.getElementById('login-btn');
+        const errorDiv = document.getElementById('login-error');
+
+        // Handle Login
         document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-
-            const loginBtn = e.target.querySelector('button[type="submit"]');
-            const originalText = loginBtn.innerHTML;
-            loginBtn.innerHTML = 'Logging in...';
-            loginBtn.disabled = true;
-
             const id = document.getElementById('admin-id').value.trim();
             const password = document.getElementById('admin-password').value.trim();
 
-            // Server-side validation via /api/auth
-            const result = await AppContext.loginAdmin(id, password);
+            // Show loading state
+            loginBtn.disabled = true;
+            const originalText = loginBtn.textContent;
+            loginBtn.textContent = 'Authenticating...';
+            errorDiv.style.display = 'none';
 
-            if (result.success) {
-                Router.navigate('/admin_page');
-            } else {
-                alert(result.error || 'Invalid Credentials!');
-                loginBtn.innerHTML = originalText;
+            try {
+                // Authenticate against Turso database
+                const isValid = await AppContext.authenticateAdmin(id, password);
+                
+                if (isValid) {
+                    // Set admin session
+                    AppContext.setSession({ id: id, role: 'admin' });
+                    Router.navigate('/admin_page');
+                } else {
+                    // Show error
+                    errorDiv.textContent = 'Invalid credentials. Please check your Admin ID and password.';
+                    errorDiv.style.display = 'block';
+                    document.getElementById('admin-password').value = '';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                errorDiv.textContent = 'Login failed. Please try again.';
+                errorDiv.style.display = 'block';
+            } finally {
                 loginBtn.disabled = false;
+                loginBtn.textContent = originalText;
             }
         });
 

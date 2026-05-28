@@ -5,6 +5,10 @@ import { calculateAge } from '../utils/date.js';
 
 export const WorkerResults = {
     async render() {
+        // Determine Worker to show:
+        // 1. URL Query Param (Admin viewing worker)
+        // 2. Current User (Worker viewing self)
+
         let workerId = null;
         const hashParts = window.location.hash.split('?');
         if (hashParts.length > 1) {
@@ -30,6 +34,7 @@ export const WorkerResults = {
 
         const isAdminView = AppContext.currentUser && AppContext.currentUser.role === 'admin';
 
+        // Routine Logic (Mock)
         const getRoutine = (w) => {
             const bmi = w.weight / ((w.height / 100) ** 2);
             if (bmi > 25) {
@@ -49,7 +54,7 @@ export const WorkerResults = {
         return `
             <div class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
                 <div style="margin-bottom: 1rem;">
-                    ${Button({ text: 'Back', variant: 'secondary', onClick: isAdminView ? "window.location.hash='#/admin_page'" : "window.location.hash='#/'" })}
+                    ${Button({ text: '← Back', variant: 'secondary', onClick: isAdminView ? "window.location.hash='#/admin_page'" : "window.location.hash='#/'" })}
                 </div>
 
                 <div id="print-area">
@@ -67,6 +72,7 @@ export const WorkerResults = {
                     </header>
 
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                        <!-- Profile Stats -->
                         ${Card({
             title: 'Profile Details',
             children: `
@@ -81,6 +87,7 @@ export const WorkerResults = {
                             `
         })}
 
+                        <!-- Routine -->
                         ${Card({
             title: 'Recommended Routine',
             children: `
@@ -102,14 +109,14 @@ export const WorkerResults = {
                             <h2 style="font-size: 1.5rem;">Reports History</h2>
                             ${Button({ text: '+ New Report', id: 'new-report-btn', variant: 'primary' })}
                         </div>
-
+                        
                         <div class="glass-card" style="padding: 1rem;">
                             ${worker.reports && worker.reports.length > 0
                 ? worker.reports.map(r => `
-                                    <div style="border-bottom: 1px solid var(--border); padding: 1rem 0;">
+                                    <div style="border-bottom: 1px solid var(--border); padding: 1rem 0; last-child: border-bottom: none;">
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <strong>${r.date}</strong>
-                                            <span style="font-size: 0.8rem; opacity: 0.7;">${r.author || ''}</span>
+                                            <span style="font-size: 0.8rem; opacity: 0.7;">${r.author}</span>
                                         </div>
                                         <p>${r.content}</p>
                                     </div>
@@ -146,6 +153,7 @@ export const WorkerResults = {
     },
 
     afterRender() {
+        // Modal Logic
         const modal = document.getElementById('report-modal');
         document.getElementById('new-report-btn').addEventListener('click', () => {
             modal.classList.remove('hidden');
@@ -158,11 +166,11 @@ export const WorkerResults = {
         });
 
         // Submit Report
-        document.getElementById('report-form').addEventListener('submit', async (e) => {
+        document.getElementById('report-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            const content = document.getElementById('report-content').value.trim();
-            if (!content) return;
+            const content = document.getElementById('report-content').value;
 
+            // Determine Worker ID again
             let workerId = null;
             const hashParts = window.location.hash.split('?');
             if (hashParts.length > 1) {
@@ -175,23 +183,20 @@ export const WorkerResults = {
                 const report = {
                     date: new Date().toLocaleDateString(),
                     content: content,
-                    author: AppContext.currentUser ? (AppContext.currentUser.role === 'admin' ? 'Manager' : 'Worker') : 'Unknown',
-                    messages: []
+                    author: AppContext.currentUser ? (AppContext.currentUser.role === 'admin' ? 'Manager' : 'Worker') : 'Unknown'
                 };
 
+                // Update Context
                 const worker = AppContext.getWorker(workerId);
+                // Also update status to Active if it was pending
                 const updates = {
                     reports: [report, ...(worker.reports || [])],
                     status: 'Active'
                 };
 
-                const saved = await AppContext.updateWorker(workerId, updates);
-                if (saved) {
-                    modal.classList.add('hidden');
-                    Router.handleRoute();
-                } else {
-                    alert('Failed to save report. Please try again.');
-                }
+                AppContext.updateWorker(workerId, updates);
+                modal.classList.add('hidden');
+                Router.handleRoute(); // Refresh
             }
         });
 
@@ -208,7 +213,7 @@ export const WorkerResults = {
 
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');
-                const margin = 25.4;
+                const margin = 25.4; // 1 inch in mm
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const contentWidth = pdfWidth - (2 * margin);
                 const contentHeight = (canvas.height * contentWidth) / canvas.width;
